@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>מחשבון ומפיק מפרט חלוקת כספים - מוב ליס</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <style>
+            :root {
+                --primary: #1e3a8a;
+                --secondary: #0284c7;
+                --bg: #f8fafc;
+                --text: #334155;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                background-color: var(--bg);
+                color: var(--text);
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 900px;
+                margin: 0 auto;
+                background: #fff;
+                padding: 25px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            }
+            h1,
+            h2 {
+                color: var(--primary);
+                margin-top: 0;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+            }
+            label {
+                font-weight: bold;
+                margin-bottom: 5px;
+                font-size: 0.9em;
+            }
+            input,
+            select {
+                padding: 10px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 1em;
+            }
+            .card {
+                background: #f1f5f9;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }
+            .benefit-row {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+            .btn {
+                padding: 10px 18px;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            .btn-add {
+                background: var(--secondary);
+                color: white;
+            }
+            .btn-remove {
+                background: #ef4444;
+                color: white;
+            }
+            .btn-pdf {
+                background: #16a34a;
+                color: white;
+                font-size: 1.1em;
+                width: 100%;
+                padding: 12px;
+            }
+            .summary-box {
+                background: #e0f2fe;
+                border-right: 4px solid var(--secondary);
+                padding: 15px;
+                margin-top: 15px;
+                font-size: 1.1em;
+            }
+
+            #pdf-template-wrapper {
+                position: fixed;
+                top: 0;
+                left: -9999px;
+            }
+            #pdf-template {
+                width: 794px;
+                height: 1118px;
+                position: relative;
+                background-image: url("form-bg.jpg");
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-position: center center;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #000;
+                direction: rtl;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            .pdf-field {
+                position: absolute;
+                font-weight: bold;
+                font-size: 15px;
+                color: #000;
+                white-space: nowrap;
+            }
+
+            .pos-date {
+                top: 94px;
+                left: 130px;
+            }
+            .pos-client {
+                top: 256px;
+                right: 290px;
+            }
+            .pos-car {
+                top: 278px;
+                right: 290px;
+            }
+            .pos-importer {
+                top: 300px;
+                right: 290px;
+            }
+            .pos-order {
+                top: 322px;
+                right: 320px;
+            }
+            .pos-imp-sum1 {
+                top: 472px;
+                right: 180px;
+                text-align: center;
+                min-width: 130px;
+            }
+            .pos-imp-sum2 {
+                top: 503px;
+                right: 330px;
+                text-align: center;
+                min-width: 130px;
+            }
+            .pos-agent-sum {
+                top: 695px;
+                right: 390px;
+                text-align: center;
+                min-width: 130px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>מחשבון ומפיק מפרט חלוקת כספים</h1>
+            <div class="card">
+                <h2>1. פרטי העסקה והרכב</h2>
+                <div class="grid">
+                    <div class="form-group">
+                        <label>עסקה ע"ש (שם לקוח):</label>
+                        <input type="text" id="clientName" placeholder="הכנס שם לקוח" />
+                    </div>
+                    <div class="form-group">
+                        <label>רכב מסוג:</label>
+                        <input type="text" id="carModel" placeholder="לדוגמה: איווקו 7.2 / ברלינגו" />
+                    </div>
+                    <div class="form-group">
+                        <label>שם יבואן:</label>
+                        <input type="text" id="importerName" placeholder="לדוגמה: סמלת / לובינסקי" />
+                    </div>
+                    <div class="form-group">
+                        <label>מספר הזמנת יבואן:</label>
+                        <input type="text" id="orderNum" placeholder="הכנס מס' הזמנה" />
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>2. חישוב חלוקת כספים</h2>
+                <div class="grid">
+                    <div class="form-group">
+                        <label>מחיר רכב/מחירון (ללא מע"מ):</label>
+                        <input type="number" id="carPrice" placeholder="0" oninput="calculate()" />
+                    </div>
+                    <div class="form-group">
+                        <label>סוג עמלת/הנחת סוכן:</label>
+                        <select id="discountType" onchange="calculate()">
+                            <option value="percent">אחוזים (%)</option>
+                            <option value="fixed">סכום קבוע (₪)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ערך ההנחה (סכום / %):</label>
+                        <input type="number" id="discountValue" placeholder="0" oninput="calculate()" />
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
+                    <label style="color: #0284c7">אגרת רישוי:</label>
+                    <input type="number" id="licenseee" placeholder="0" oninput="calculate()" />
+                </div>
+
+                <h3>הטבות נוספות ללקוח (חייבות במע"מ - הוצאות סוכן)</h3>
+                <div id="benefitsContainer"></div>
+                <button class="btn btn-add" onclick="addBenefit()">+ הוסף הטבה</button>
+
+                <div class="summary-box">
+                    <div><strong>ליבואן (כולל מע"מ והערת אגרה):</strong> <span id="importerFinal">0</span> ₪</div>
+                    <div><strong>לסוכן (כולל מע"מ והערת אגרה):</strong> <span id="agentFinal">0</span> ₪</div>
+                </div>
+            </div>
+            <button class="btn btn-pdf" id="pdfBtn" onclick="generatePDF()">הורד קובץ PDF לפמה</button>
+        </div>
+
+        <div id="pdf-template-wrapper">
+            <div id="pdf-template">
+                <div class="pdf-field pos-date" id="pdf-date"></div>
+                <div class="pdf-field pos-client" id="pdf-client"></div>
+                <div class="pdf-field pos-car" id="pdf-car"></div>
+                <div class="pdf-field pos-importer" id="pdf-importer"></div>
+                <div class="pdf-field pos-order" id="pdf-order"></div>
+                <div class="pdf-field pos-imp-sum1" id="pdf-imp-sum1"></div>
+                <div class="pdf-field pos-imp-sum2" id="pdf-imp-sum2"></div>
+                <div class="pdf-field pos-agent-sum" id="pdf-agent-sum"></div>
+            </div>
+        </div>
+
+        <script>
+            const today = new Date().toLocaleDateString("he-IL");
+
+            function addBenefit() {
+                const container = document.getElementById("benefitsContainer");
+                const div = document.createElement("div");
+                div.className = "benefit-row";
+                div.innerHTML = `
+                    <input type="text" placeholder="תיאור ההטבה (לדוגמה: דיפון / מראות)" style="flex: 2;">
+                    <input type="number" placeholder="0" class="benefit-amount" style="flex: 1;" oninput="calculate()">
+                    <button class="btn btn-remove" onclick="removeBenefit(this)">X</button>
+                `;
+                container.appendChild(div);
+                calculate();
+            }
+
+            function removeBenefit(btn) {
+                btn.parentElement.remove();
+                calculate();
+            }
+
+            function calculate() {
+                const carPrice = parseFloat(document.getElementById("carPrice").value) || 0;
+                const discountType = document.getElementById("discountType").value;
+                const discountValue = parseFloat(document.getElementById("discountValue").value) || 0;
+                const licenseFee = parseFloat(document.getElementById("licenseee").value) || 0;
+
+                let agentBase = 0;
+                if (discountType === "percent") {
+                    agentBase = carPrice * (discountValue / 100);
+                } else {
+                    agentBase = discountValue;
+                }
+
+                let importerBase = carPrice - agentBase;
+
+                let totalStandardBenefits = 0;
+                const benefitInputs = document.querySelectorAll(".benefit-amount");
+                benefitInputs.forEach((input) => {
+                    totalStandardBenefits += parseFloat(input.value) || 0;
+                });
+
+                const agentNet = agentBase - totalStandardBenefits;
+                const importerNet = importerBase + totalStandardBenefits;
+
+                const agentGrossBeforeLicense = Math.round(agentNet * 1.18);
+                const importerGrossBeforeLicense = Math.round(importerNet * 1.18);
+
+                const agentGross = agentGrossBeforeLicense - licenseFee;
+                const importerGross = importerGrossBeforeLicense + licenseFee;
+
+                document.getElementById("importerFinal").innerText = importerGross.toLocaleString();
+                document.getElementById("agentFinal").innerText = agentGross.toLocaleString();
+
+                return { importerGross, agentGross };
+            }
+
+            function generatePDF() {
+                const btn = document.getElementById("pdfBtn");
+                btn.innerText = "מפיק קובץ PDF...";
+                btn.disabled = true;
+
+                const { importerGross, agentGross } = calculate();
+
+                document.getElementById("pdf-client").innerText = document.getElementById("clientName").value;
+                document.getElementById("pdf-car").innerText = document.getElementById("carModel").value;
+                document.getElementById("pdf-importer").innerText = document.getElementById("importerName").value;
+                document.getElementById("pdf-order").innerText = document.getElementById("orderNum").value;
+                document.getElementById("pdf-date").innerText = today;
+
+                const impSumFormatted = importerGross.toLocaleString();
+                document.getElementById("pdf-imp-sum1").innerText = impSumFormatted;
+                document.getElementById("pdf-imp-sum2").innerText = impSumFormatted;
+                document.getElementById("pdf-agent-sum").innerText = agentGross.toLocaleString();
+
+                const element = document.getElementById("pdf-template");
+
+                const opt = {
+                    margin: 0,
+                    filename: `מפרט_חלוקה_${document.getElementById("clientName").value || "פמה"}.pdf`,
+                    image: { type: "jpeg", quality: 1.0 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        scrollX: 0,
+                        scrollY: 0,
+                        width: 794,
+                        height: 1118,
+                    },
+                    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+                    pagebreak: { mode: "avoid-all" },
+                };
+
+                html2pdf()
+                    .set(opt)
+                    .from(element)
+                    .save()
+                    .then(() => {
+                        btn.innerText = "הורד קובץ PDF לפמה";
+                        btn.disabled = false;
+                    });
+            }
+
+            calculate();
+        </script>
+    </body>
+</html>
