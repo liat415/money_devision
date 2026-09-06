@@ -124,7 +124,6 @@
                 line-height: 1.5;
             }
 
-            /* מובייל רספונסיבי */
             @media (min-width: 600px) {
                 body {
                     padding: 20px;
@@ -141,7 +140,7 @@
                 }
             }
 
-            /* עיצוב ה-PDF (נסתר מחוץ למסך) */
+            /* עיצוב ה-PDF */
             #pdf-template-wrapper {
                 position: fixed;
                 top: 0;
@@ -166,7 +165,7 @@
                 font-weight: bold;
                 font-size: 15px;
                 color: #000;
-                white-space: nowrap;
+                white-space: pre-wrap;
             }
             .pos-date {
                 top: 94px;
@@ -254,9 +253,22 @@
                     </div>
                 </div>
 
+                <!-- תוספות מימון לסוכן -->
                 <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
-                    <label style="color: #0284c7">אגרת רישוי:</label>
-                    <input type="number" id="licenseee" placeholder="0" oninput="calculate()" />
+                    <label style="color: #1e3a8a">תוספות מימון לסוכן (ללא מע"מ - ארגז/רמפה/זיווד):</label>
+                    <input type="number" id="agentAdditions" placeholder="0" oninput="calculate()" />
+                </div>
+
+                <!-- אגרת רישוי פטורה ממע"מ -->
+                <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
+                    <label style="color: #0284c7">אגרת רישוי</label>
+                    <input type="number" id="licenseFee" placeholder="0" oninput="calculate()" />
+                </div>
+
+                <!-- מקדמה ששולמה לסוכן (ללא מע"מ) -->
+                <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
+                    <label style="color: #dc2626">מקדמה ששולמה ליבואן (ללא מע"מ):</label>
+                    <input type="number" id="downPayment" placeholder="0" oninput="calculate()" />
                 </div>
 
                 <h3>הטבות נוספות ללקוח (חייבות במע"מ - הוצאות סוכן)</h3>
@@ -265,7 +277,7 @@
 
                 <div class="summary-box">
                     <div><strong>ליבואן (כולל מע"מ והערת אגרה):</strong> <span id="importerFinal">0</span> ₪</div>
-                    <div><strong>לסוכן (כולל מע"מ והערת אגרה):</strong> <span id="agentFinal">0</span> ₪</div>
+                    <div><strong>לסוכן (להעברה מפמה - כולל מע"מ, תוספת מימון, אגרה וקיזוז מקדמה):</strong> <span id="agentFinal">0</span> ₪</div>
                 </div>
             </div>
 
@@ -313,8 +325,11 @@
                 const carPrice = parseFloat(document.getElementById("carPrice").value) || 0;
                 const discountType = document.getElementById("discountType").value;
                 const discountValue = parseFloat(document.getElementById("discountValue").value) || 0;
-                const licenseFee = parseFloat(document.getElementById("licenseee").value) || 0;
+                const licenseFee = parseFloat(document.getElementById("licenseFee").value) || 0;
+                const agentAdditions = parseFloat(document.getElementById("agentAdditions").value) || 0;
+                const downPayment = parseFloat(document.getElementById("downPayment").value) || 0;
 
+                // 1. חישוב עמלת הבסיס לסוכן ולמיבואן (ללא מע"מ)
                 let agentBase = 0;
                 if (discountType === "percent") {
                     agentBase = carPrice * (discountValue / 100);
@@ -324,19 +339,27 @@
 
                 let importerBase = carPrice - agentBase;
 
+                // 2. סכימת הטבות לקוח רגילות (ללא מע"מ)
                 let totalStandardBenefits = 0;
                 const benefitInputs = document.querySelectorAll(".benefit-amount");
                 benefitInputs.forEach((input) => {
                     totalStandardBenefits += parseFloat(input.value) || 0;
                 });
 
+                // 3. חישוב נטו ללא מע"מ
                 const agentNet = agentBase - totalStandardBenefits;
                 const importerNet = importerBase + totalStandardBenefits;
 
+                // 4. המרה לכולל מע"מ (18%)
                 const agentGrossBeforeLicense = Math.round(agentNet * 1.18);
                 const importerGrossBeforeLicense = Math.round(importerNet * 1.18);
 
-                const agentGross = agentGrossBeforeLicense - licenseFee;
+                // 5. חישוב תוספות מימון לסוכן ומקדמה כולל מע"מ (18%)
+                const agentAdditionsGross = Math.round(agentAdditions * 1.18);
+                const downPaymentGross = Math.round(downPayment * 1.18);
+
+                // 6. חישוב סופי
+                const agentGross = agentGrossBeforeLicense - licenseFee + agentAdditionsGross - downPaymentGross;
                 const importerGross = importerGrossBeforeLicense + licenseFee;
 
                 document.getElementById("importerFinal").innerText = importerGross.toLocaleString();
@@ -348,10 +371,12 @@
             function preparePDFTemplate() {
                 const { importerGross, agentGross } = calculate();
 
-                document.getElementById("pdf-client").innerText = document.getElementById("clientName").value;
-                document.getElementById("pdf-car").innerText = document.getElementById("carModel").value;
-                document.getElementById("pdf-importer").innerText = document.getElementById("importerName").value;
-                document.getElementById("pdf-order").innerText = document.getElementById("orderNum").value;
+                const fixSpaces = (text) => (text || "").replace(/ /g, "\u00A0");
+
+                document.getElementById("pdf-client").innerText = fixSpaces(document.getElementById("clientName").value);
+                document.getElementById("pdf-car").innerText = fixSpaces(document.getElementById("carModel").value);
+                document.getElementById("pdf-importer").innerText = fixSpaces(document.getElementById("importerName").value);
+                document.getElementById("pdf-order").innerText = fixSpaces(document.getElementById("orderNum").value);
                 document.getElementById("pdf-date").innerText = today;
 
                 const impSumFormatted = importerGross.toLocaleString();
@@ -363,9 +388,10 @@
             }
 
             function getPDFOptions() {
+                const clientNameVal = document.getElementById("clientName").value.trim() || "לקוח";
                 return {
                     margin: 0,
-                    filename: `מפרט_חלוקה_${document.getElementById("clientName").value || "פמה"}.pdf`,
+                    filename: `חלוקת_כספים_${clientNameVal}.pdf`,
                     image: { type: "jpeg", quality: 1.0 },
                     html2canvas: {
                         scale: 2,
@@ -380,7 +406,6 @@
                 };
             }
 
-            // הורדה רגילה למחשב/מכשיר
             function generatePDF() {
                 const btn = document.getElementById("pdfBtn");
                 btn.innerText = "מפיק קובץ PDF...";
@@ -394,12 +419,11 @@
                     .from(element)
                     .save()
                     .then(() => {
-                        btn.innerText = "הורד קובץ PDF לפמה";
+                        btn.innerText = "הורד קובץ PDF";
                         btn.disabled = false;
                     });
             }
 
-            // שיתוף ישיר בנייד (וואטסאפ, מייל וכו')
             async function sharePDF() {
                 const btn = document.getElementById("shareBtn");
                 const originalText = btn.innerText;
@@ -408,6 +432,7 @@
 
                 const element = preparePDFTemplate();
                 const opt = getPDFOptions();
+                const clientNameVal = document.getElementById("clientName").value.trim() || "לקוח";
 
                 try {
                     const pdfWorker = html2pdf().set(opt).from(element);
@@ -419,8 +444,8 @@
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({
                             files: [file],
-                            title: "מפרט חלוקת כספים",
-                            text: `מפרט חלוקת כספים עבור ${document.getElementById("clientName").value || "הלקוח"}`,
+                            title: `חלוקת כספים ללקוח ${clientNameVal}`,
+                            text: `חלוקת כספים ללקוח ${clientNameVal}`,
                         });
                     } else {
                         alert("שיתוף קבצים ישיר אינו נתמך בדפדפן זה. הקובץ יירד כעת באופן רגיל.");
