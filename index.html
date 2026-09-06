@@ -124,6 +124,29 @@
                 line-height: 1.5;
             }
 
+            /* עיצוב תיבת הסימון ליבואן מקביל */
+            .checkbox-group {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: #fef3c7;
+                padding: 12px;
+                border-radius: 6px;
+                border: 1px solid #f59e0b;
+                margin-bottom: 15px;
+            }
+            .checkbox-group input {
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+            }
+            .checkbox-group label {
+                margin-bottom: 0;
+                cursor: pointer;
+                color: #92400e;
+                font-size: 1em;
+            }
+
             @media (min-width: 600px) {
                 body {
                     padding: 20px;
@@ -235,6 +258,13 @@
 
             <div class="card">
                 <h2>2. חישוב חלוקת כספים</h2>
+
+                <!-- אפשרות יבואן מקביל -->
+                <div class="checkbox-group">
+                    <input type="checkbox" id="isParallelImporter" onchange="calculate()" />
+                    <label for="isParallelImporter"><strong>עסקה מול יבואן מקביל</strong> (כל הכסף מועבר לסוכן)</label>
+                </div>
+
                 <div class="grid">
                     <div class="form-group">
                         <label>מחיר רכב/מחירון (ללא מע"מ):</label>
@@ -261,13 +291,13 @@
 
                 <!-- אגרת רישוי פטורה ממע"מ -->
                 <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
-                    <label style="color: #0284c7">אגרת רישוי</label>
+                    <label style="color: #0284c7">אגרת רישוי (פטורה ממע"מ):</label>
                     <input type="number" id="licenseFee" placeholder="0" oninput="calculate()" />
                 </div>
 
                 <!-- מקדמה ששולמה לסוכן (ללא מע"מ) -->
                 <div class="form-group" style="margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1">
-                    <label style="color: #dc2626">מקדמה ששולמה ליבואן (ללא מע"מ):</label>
+                    <label style="color: #dc2626">מקדמה ששולמה לסוכן (ללא מע"מ - מתווסף מע"מ 18% ומקוזז מהסוכן):</label>
                     <input type="number" id="downPayment" placeholder="0" oninput="calculate()" />
                 </div>
 
@@ -322,6 +352,7 @@
             }
 
             function calculate() {
+                const isParallel = document.getElementById("isParallelImporter").checked;
                 const carPrice = parseFloat(document.getElementById("carPrice").value) || 0;
                 const discountType = document.getElementById("discountType").value;
                 const discountValue = parseFloat(document.getElementById("discountValue").value) || 0;
@@ -329,38 +360,46 @@
                 const agentAdditions = parseFloat(document.getElementById("agentAdditions").value) || 0;
                 const downPayment = parseFloat(document.getElementById("downPayment").value) || 0;
 
-                // 1. חישוב עמלת הבסיס לסוכן ולמיבואן (ללא מע"מ)
-                let agentBase = 0;
-                if (discountType === "percent") {
-                    agentBase = carPrice * (discountValue / 100);
+                let importerGross = 0;
+                let agentGross = 0;
+
+                if (isParallel) {
+                    // ביבואן מקביל - כל סכום העסקה מועבר לחשבון הסוכן
+                    const carPriceGross = Math.round(carPrice * 1.18);
+                    const agentAdditionsGross = Math.round(agentAdditions * 1.18);
+                    const downPaymentGross = Math.round(downPayment * 1.18);
+
+                    importerGross = 0;
+                    agentGross = carPriceGross + agentAdditionsGross + licenseFee - downPaymentGross;
                 } else {
-                    agentBase = discountValue;
+                    // ביבואן רשמי - חלוקת הכספים הרגילה
+                    let agentBase = 0;
+                    if (discountType === "percent") {
+                        agentBase = carPrice * (discountValue / 100);
+                    } else {
+                        agentBase = discountValue;
+                    }
+
+                    let importerBase = carPrice - agentBase;
+
+                    let totalStandardBenefits = 0;
+                    const benefitInputs = document.querySelectorAll(".benefit-amount");
+                    benefitInputs.forEach((input) => {
+                        totalStandardBenefits += parseFloat(input.value) || 0;
+                    });
+
+                    const agentNet = agentBase - totalStandardBenefits;
+                    const importerNet = importerBase + totalStandardBenefits;
+
+                    const agentGrossBeforeLicense = Math.round(agentNet * 1.18);
+                    const importerGrossBeforeLicense = Math.round(importerNet * 1.18);
+
+                    const agentAdditionsGross = Math.round(agentAdditions * 1.18);
+                    const downPaymentGross = Math.round(downPayment * 1.18);
+
+                    agentGross = agentGrossBeforeLicense - licenseFee + agentAdditionsGross - downPaymentGross;
+                    importerGross = importerGrossBeforeLicense + licenseFee;
                 }
-
-                let importerBase = carPrice - agentBase;
-
-                // 2. סכימת הטבות לקוח רגילות (ללא מע"מ)
-                let totalStandardBenefits = 0;
-                const benefitInputs = document.querySelectorAll(".benefit-amount");
-                benefitInputs.forEach((input) => {
-                    totalStandardBenefits += parseFloat(input.value) || 0;
-                });
-
-                // 3. חישוב נטו ללא מע"מ
-                const agentNet = agentBase - totalStandardBenefits;
-                const importerNet = importerBase + totalStandardBenefits;
-
-                // 4. המרה לכולל מע"מ (18%)
-                const agentGrossBeforeLicense = Math.round(agentNet * 1.18);
-                const importerGrossBeforeLicense = Math.round(importerNet * 1.18);
-
-                // 5. חישוב תוספות מימון לסוכן ומקדמה כולל מע"מ (18%)
-                const agentAdditionsGross = Math.round(agentAdditions * 1.18);
-                const downPaymentGross = Math.round(downPayment * 1.18);
-
-                // 6. חישוב סופי
-                const agentGross = agentGrossBeforeLicense - licenseFee + agentAdditionsGross - downPaymentGross;
-                const importerGross = importerGrossBeforeLicense + licenseFee;
 
                 document.getElementById("importerFinal").innerText = importerGross.toLocaleString();
                 document.getElementById("agentFinal").innerText = agentGross.toLocaleString();
